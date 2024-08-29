@@ -23,7 +23,7 @@ The final output of the project is a table (`contour_table`) stored in a `.mat` 
    - **Type:** Numeric (Double)
    
 4. **contours_xy**
-   - **Description:** This column contains the contour data for the target character in each frame. The contours are represented as a cell array, where each cell contains a matrix of shape (50x2). Each matrix provides the (x, y) coordinates outlining the target character’s body in that frame.
+   - **Description:** This column contains the contour data for the target character in each frame. The contours are represented as a cell array, where each cell contains a matrix of shape (50x2). Each matrix provides the (x, y) coordinates outlining the target character’s body in that frame. The coordinates are normalized such that (0,0) is the center of the video frame. The bounds of the frame extend from [-frame_width/2, frame_width/2] in the x-direction and [-frame_height/2, frame_height/2] in the y-direction. This means the top-right corner of the frame is at (frame_width/2, frame_height/2) and the bottom-left corner is at (-frame_width/2, -frame_height/2).
    - **Type:** Cell array of 50x2 matrices
 
 ## Explanation of Contours
