@@ -50,33 +50,58 @@ filtered_table = contour_table(contour_table.video_name == selected_video, :);
 
 
 ```matlab
-% Loop through the filtered rows and plot the contours
+% Concatenate all contour data into one matrix to determine xlim and ylim
+all_contours = vertcat(contour_table.contours_xy{:});
+mins = min(cell2mat(all_contours));
+maxs = max(cell2mat(all_contours));
+
+% Generate simulated eye positions
+num_frames = height(filtered_table);
+eye_positions = cell(num_frames, 1);
+for i = 1:num_frames
+    % Use the centroid of the contour plus some random noise as the eye position
+    contour_data = cell2mat(filtered_table.contours_xy{i});
+    if isnan(contour_data(1,1))
+        eye_positions{i} = NaN(1, 2);
+    else
+        contour_centroid = mean(contour_data, 1);
+        eye_positions{i} = contour_centroid + randn(1, 2) * 20; % Adding noise
+    end
+end
+
+% Loop through the filtered rows and plot the contours with the eye positions
 figure;
-hold on;
-for i = 1:height(filtered_table)
-    contour_data = filtered_table.contours_xy{i};  % Extract the (50x2) contour matrix
-    plot(contour_data(:,1), contour_data(:,2), '-o');  % Plot the (x,y) coordinates
+hold off;
+for i = 1:num_frames
+    contour_data = cell2mat(filtered_table.contours_xy{i});  % Extract the (50x2) contour matrix
+    
+    % Check if the first value is NaN and skip if true
+    if isnan(contour_data(1,1))
+        continue;
+    end
+    
+    % Plot the contour (50x2 points) for the current frame
+    plot(contour_data(:,1), contour_data(:,2), '-','linewidth',2,'color','red');  % Plot the (x,y) coordinates
+    hold on;
+    
+    % Determine if the eye position is inside or outside the contour
+    is_inside = inpolygon(eye_positions{i}(1), eye_positions{i}(2), contour_data(:,1), contour_data(:,2));
+    
+    % Plot the eye position: red if inside, black if outside
+    if is_inside
+        plot(eye_positions{i}(1), eye_positions{i}(2), 'ro', 'MarkerFaceColor', 'red');  % Red if inside
+    else
+        plot(eye_positions{i}(1), eye_positions{i}(2), 'ko', 'MarkerFaceColor', 'black');  % Black if outside
+    end
+    
+    % Set title and axes limits
     title(sprintf('Frame: %d, Time: %.2f sec', i, filtered_table.time_alignedVideoStart_sec(i)));
-    pause(0.1);  % Pause to visually inspect each contour
+    xlim([mins(1)-1, maxs(1)+1]);
+    ylim([mins(2)-1 maxs(2)+1]);
+    
+    % Pause for animation effect
+    pause(0.1);
+    hold off;
 end
 hold off;
-```
-
-```matlab
-% Define a point (e.g., eye position) to test
-eye_position = [300, 200];  % Example (x, y) coordinates
-
-% Loop through the frames and check if the point is inside the contour
-inside_flags = false(height(filtered_table), 1);
-for i = 1:height(filtered_table)
-    contour_data = filtered_table.contours_xy{i};  % Extract the contour
-    inside_flags(i) = inpolygon(eye_position(1), eye_position(2), contour_data(:,1), contour_data(:,2));
-end
-
-% Display the results
-if any(inside_flags)
-    disp('The eye position is inside the contour in some frames.');
-else
-    disp('The eye position is never inside the contour.');
-end
 ```
