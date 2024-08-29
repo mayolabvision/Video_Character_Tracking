@@ -33,6 +33,10 @@ For example, if the contour had only 4 points, it would simply draw a box around
 
 To handle cases where the character was not detected in every frame, interpolation was applied between the first and last frames where the character was detected. The interpolation fills in missing contour data to maintain a smooth and continuous outline across frames.
 
+
+https://github.com/user-attachments/assets/7af83a51-8cac-4c81-90dc-3556aef702a7
+
+
 ## Usage
 
 The table stored in `ALL_CONTOURS.mat` can be loaded into MATLAB or other compatible software for analysis. You can access and manipulate the contour data to study the movement, position, and other characteristics of the target character over time.
