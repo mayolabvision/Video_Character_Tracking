@@ -33,13 +33,13 @@ For example, if the contour had only 4 points, it would simply draw a box around
 
 To handle cases where the character was not detected in every frame, interpolation was applied between the first and last frames where the character was detected. The interpolation fills in missing contour data to maintain a smooth and continuous outline across frames.
 
-
+### Example video with target character boundaries/contours drawn around them (red lines) at each frame:
 https://github.com/user-attachments/assets/ef6ac58c-e573-4dd0-b16e-4683ef16f327
 
 
 
 
-
+### Target character boundaries (red lines) for same example video as above, and an example "eye position" that shows if the eyes were on the target (red dot) or outside the target (black dot):
 https://github.com/user-attachments/assets/5925dcdc-0cd6-450c-948c-6e8aca6992d1
 
 
