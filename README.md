@@ -35,15 +35,6 @@ To handle cases where the character was not detected in every frame, interpolati
 
 
 
-https://github.com/user-attachments/assets/665c1bcc-f8c8-422e-8664-518ca19bc243
-
-
-
-https://github.com/user-attachments/assets/07e9e749-c259-494f-b694-0c87253a3960
-
-
-
-
 ## Usage
 
 The table stored in `ALL_CONTOURS.mat` can be loaded into MATLAB or other compatible software for analysis. You can access and manipulate the contour data to study the movement, position, and other characteristics of the target character over time.
