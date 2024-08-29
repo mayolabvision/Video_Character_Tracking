@@ -3,10 +3,11 @@ import torch
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
-from scipy.spatial import distance
 import numpy as np
 from filterpy.kalman import KalmanFilter
 import os
+import glob
+import json
 
 # IOU calculation function
 def calculate_iou(box1, box2):
@@ -57,53 +58,59 @@ def create_kalman_filter(initial_bbox):
 
     return kf
 
-def person_tracker(video_path):
-    # Load Detectron2 model configuration and weights
+def people_tracker(video_path, output_path, confidence_threshold=0.7, iou_threshold=0.5, max_missing_frames=10):
+    # Create a directory to store subject images
+    subject_images_path = os.path.join(output_path, "subjects")
+    files = glob.glob(os.path.join(subject_images_path, '*'))
+    for f in files:
+        os.remove(f)
+
     cfg = get_cfg()
-    cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"))
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.9  # Set threshold for this model
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
-    cfg.MODEL.DEVICE = "cpu"  # Run on CPU since we are not using CUDA
+    cfg.merge_from_file(model_zoo.get_config_file("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml"))
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = confidence_threshold 
+    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml")
+    cfg.MODEL.DEVICE = "cpu"  
     
     predictor = DefaultPredictor(cfg)
     
-    # Initialize video capture
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise ValueError(f"Error: Video at {video_path} could not be opened.")
     
-    # Get the original video's properties
     fps = cap.get(cv2.CAP_PROP_FPS)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    
-    # Set up the video writer to save the output video
-    output_path = os.path.splitext(video_path)[0] + "_tracked.mp4"
+    num_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    vid_path = os.path.join(output_path, "tracked_allSubjects.mp4")
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(vid_path, fourcc, fps, (width, height))
 
     person_id_counter = 0
     tracked_persons = {}
+    
+    # Dictionary to store contours by frame and person ID
+    contour_dict = {} 
 
-    max_missing_frames = 50  # Max frames to retain an ID for a missing person
-
+    frame_number = 0
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Run object detection on the current frame
         outputs = predictor(frame)
-        boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
-        classes = outputs["instances"].pred_classes.cpu().numpy()
+        instances = outputs["instances"].to("cpu")
+        masks = instances.pred_masks.numpy()
+        boxes = instances.pred_boxes.tensor.numpy()
+        classes = instances.pred_classes.numpy()
 
-        # Filter for "person" class (class_id == 0 for COCO dataset)
-        person_boxes = [box for box, cls in zip(boxes, classes) if cls == 0]
-
+        person_indices = [i for i, cls in enumerate(classes) if cls == 0]
         updated_persons = {}
         used_ids = set()
 
-        for box in person_boxes:
+        for i in person_indices:
+            mask = masks[i]
+            box = boxes[i]
             x1, y1, x2, y2 = map(int, box)
 
             best_iou = 0
@@ -113,7 +120,6 @@ def person_tracker(video_path):
                 if missing_frames > max_missing_frames:
                     continue
 
-                # Predict the next position using Kalman Filter
                 kf.predict()
                 predicted_box = kf.x[:4].reshape((4,)).astype(int)
                 iou = calculate_iou(predicted_box, box)
@@ -121,7 +127,7 @@ def person_tracker(video_path):
                     best_iou = iou
                     best_match_id = person_id
 
-            if best_iou > 0.3 and best_match_id is not None:
+            if best_iou > iou_threshold and best_match_id is not None:
                 kf, _, _ = tracked_persons[best_match_id]
                 kf.update(np.array([x1, y1, x2, y2]))
                 updated_persons[best_match_id] = (kf, box, 0)
@@ -129,42 +135,60 @@ def person_tracker(video_path):
             else:
                 kf = create_kalman_filter([x1, y1, x2, y2])
                 updated_persons[person_id_counter] = (kf, box, 0)
+                best_match_id = person_id_counter
                 person_id_counter += 1
 
-        # Update the missing frame count for persons not detected in the current frame
+                # Save the first frame's image of the detected person with a red bounding box
+                subject_image = frame.copy()
+                cv2.rectangle(subject_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                zoom_out_x1 = max(0, x1 - 20)
+                zoom_out_y1 = max(0, y1 - 20)
+                zoom_out_x2 = min(width, x2 + 20)
+                zoom_out_y2 = min(height, y2 + 20)
+                subject_image = subject_image[zoom_out_y1:zoom_out_y2, zoom_out_x1:zoom_out_x2]
+                
+                subject_image_path = os.path.join(subject_images_path, f"s{best_match_id:03d}.jpg")
+                cv2.imwrite(subject_image_path, subject_image)
+
+            contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if contours:
+                largest_contour = max(contours, key=cv2.contourArea).squeeze().tolist()
+
+                # Store the contour in the dictionary
+                if best_match_id not in contour_dict:
+                    contour_dict[best_match_id] = {}
+                contour_dict[best_match_id][frame_number] = largest_contour
+
+            colored_mask = np.zeros_like(frame, dtype=np.uint8)
+            colored_mask[mask] = (0, 255, 0)  
+
+            frame = cv2.addWeighted(frame, 1.0, colored_mask, 0.5, 0)
+
         for person_id in tracked_persons.keys() - updated_persons.keys():
             kf, last_box, missing_frames = tracked_persons[person_id]
             missing_frames += 1
             if missing_frames <= max_missing_frames:
-                # Predict the next position for the missing person
                 kf.predict()
                 updated_persons[person_id] = (kf, last_box, missing_frames)
 
-        # Draw bounding boxes with person IDs
-        for person_id, (kf, box, missing_frames) in updated_persons.items():
-            if missing_frames == 0:  # Only draw if the person is detected or within the grace period
-                x1, y1, x2, y2 = map(int, box)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                label = f"Person {person_id}"
-                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
         tracked_persons = updated_persons
-
-        # Write the frame to the output video
         out.write(frame)
-
-        # Display the frame with detections
         cv2.imshow('Person Tracker', frame)
 
-        # Exit if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
+        frame_number += 1
+
     cap.release()
-    out.release()  # Save the video file
+    out.release()  
     cv2.destroyAllWindows()
 
-    print(f"Saved tracked video to {output_path}")
+    # Save the dictionary to a JSON file
+    with open(os.path.join(output_path, "contours.json"), "w") as f:
+        json.dump(contour_dict, f)
 
-# Example usage:
-# person_tracker('path/to/video.mp4')
+    print(f"Saved tracked video to {output_path}")
+    print(f"Saved contours data to {os.path.join(output_path, 'contours.json')}")
+
+    return num_frames,fps 
