@@ -38,7 +38,8 @@ To handle cases where the character was not detected in every frame, interpolati
 https://github.com/user-attachments/assets/665c1bcc-f8c8-422e-8664-518ca19bc243
 
 
-https://github.com/user-attachments/assets/3023a59a-af36-4543-a0f4-f35d50fac821
+
+https://github.com/user-attachments/assets/07e9e749-c259-494f-b694-0c87253a3960
 
 
 
