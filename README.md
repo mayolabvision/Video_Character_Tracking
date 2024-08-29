@@ -46,8 +46,10 @@ load('ALL_CONTOURS.mat');
 % Filter the table for a specific video name
 selected_video = 'Exp_Left_FourthDoor_High';
 filtered_table = contour_table(contour_table.video_name == selected_video, :);
-
 ```
+
+
+```matlab
 % Loop through the filtered rows and plot the contours
 figure;
 hold on;
@@ -60,7 +62,7 @@ end
 hold off;
 ```
 
-```
+```matlab
 % Define a point (e.g., eye position) to test
 eye_position = [300, 200];  % Example (x, y) coordinates
 
