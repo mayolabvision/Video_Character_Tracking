@@ -48,7 +48,7 @@ selected_video = 'Exp_Left_FourthDoor_High';
 filtered_table = contour_table(contour_table.video_name == selected_video, :);
 ```
 
-
+#### 2. Make some fake eye position data:
 ```matlab
 % Concatenate all contour data into one matrix to determine xlim and ylim
 all_contours = vertcat(contour_table.contours_xy{:});
@@ -68,7 +68,10 @@ for i = 1:num_frames
         eye_positions{i} = contour_centroid + randn(1, 2) * 20; % Adding noise
     end
 end
+```
 
+#### 3. Plot fake eye position and contour boundaries over time:
+```matlab
 % Loop through the filtered rows and plot the contours with the eye positions
 figure;
 hold off;
