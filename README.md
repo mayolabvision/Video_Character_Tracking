@@ -34,7 +34,13 @@ For example, if the contour had only 4 points, it would simply draw a box around
 To handle cases where the character was not detected in every frame, interpolation was applied between the first and last frames where the character was detected. The interpolation fills in missing contour data to maintain a smooth and continuous outline across frames.
 
 
-https://github.com/user-attachments/assets/7af83a51-8cac-4c81-90dc-3556aef702a7
+
+https://github.com/user-attachments/assets/665c1bcc-f8c8-422e-8664-518ca19bc243
+
+
+https://github.com/user-attachments/assets/3023a59a-af36-4543-a0f4-f35d50fac821
+
+
 
 
 ## Usage
